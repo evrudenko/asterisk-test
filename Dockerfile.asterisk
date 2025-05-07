@@ -32,7 +32,7 @@ COPY asterisk/ /etc/asterisk/
 # Конфигурируем и собираем Asterisk
 RUN ./configure && \
     make menuselect.makeopts && \
-    menuselect/menuselect --enable chan_sip menuselect.makeopts && \
+    menuselect/menuselect --enable chan_sip --enable func_uuid menuselect.makeopts && \
     make && \
     make install && \
     make config

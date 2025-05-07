@@ -1,8 +1,8 @@
-version: '3.8'
-
 services:
   asterisk:
-    build: ./asterisk
+    build:
+      context: .
+      dockerfile: ./Dockerfile.asterisk
     container_name: asterisk
     ports:
       - "5060:5060/udp"
@@ -16,7 +16,9 @@ services:
       - audioserver
 
   audioserver:
-    build: ./audioserver
+    build:
+      context: .
+      dockerfile: ./Dockerfile.audioserver
     container_name: audioserver
     networks:
       - asterisk-net
