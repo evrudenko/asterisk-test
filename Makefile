@@ -5,7 +5,7 @@ CONTAINER_NAME=asterisk-container
 
 # Сборка Docker-образа
 build:
-	docker build -t $(IMAGE_NAME) .
+	docker build -f Dockerfile.2 -t $(IMAGE_NAME) .
 
 # Запуск контейнера с пробросом портов
 run:
@@ -14,6 +14,7 @@ run:
 		-p 5060:5060/tcp \
 		-p 5038:5038 \
 		-p 8088:8088 \
+		-p 8080:8080 \
 		-p 10000-10050:10000-10050/udp \
 		--rm \
 		$(IMAGE_NAME)

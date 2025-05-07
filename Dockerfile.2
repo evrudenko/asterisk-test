@@ -26,21 +26,20 @@ WORKDIR /usr/src
 RUN git clone -b 20 --depth 1 https://github.com/asterisk/asterisk.git
 WORKDIR /usr/src/asterisk
 
+# Копируем твои конфиги и звуки
+COPY asterisk/ /etc/asterisk/
+
 # Конфигурируем и собираем Asterisk
 RUN ./configure && \
     make menuselect.makeopts && \
-    make && make install && make samples && make config
+    menuselect/menuselect --enable chan_sip menuselect.makeopts && \
+    make && \
+    make install && \
+    make config
 
-# Создаём пользователя asterisk
-RUN useradd -m -r -d /var/lib/asterisk -s /bin/bash asterisk
-
-# Копируем твои конфиги и звуки
-COPY asterisk/ /etc/asterisk/
-COPY sounds/dog-barking-twice.wav /var/lib/asterisk/sounds/ru/
-RUN chown -R asterisk:asterisk /var/lib/asterisk/sounds/ru/
 
 # Порты
-EXPOSE 5060/udp 5060/tcp 5038 8088
+EXPOSE 5060/udp 5060/tcp 5038 8088 8080
 
 # Запуск Asterisk
 CMD ["asterisk", "-f", "-vvv"]
