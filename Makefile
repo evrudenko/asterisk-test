@@ -5,7 +5,7 @@ CONTAINER_NAME=asterisk-container
 
 # Сборка Docker-образа
 build:
-	docker build -f Dockerfile.2 -t $(IMAGE_NAME) .
+	docker build -f Dockerfile.asterisk -t $(IMAGE_NAME) .
 
 # Запуск контейнера с пробросом портов
 run:
