@@ -1,0 +1,46 @@
+FROM debian:bullseye
+
+# Установка зависимостей для сборки Asterisk
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    git \
+    wget \
+    subversion \
+    libjansson-dev \
+    libxml2-dev \
+    uuid-dev \
+    libedit-dev \
+    libsqlite3-dev \
+    curl \
+    libcurl4-openssl-dev \
+    net-tools \
+    vim \
+    iputils-ping \
+    libncurses-dev \
+    pkg-config \
+    python3 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Скачиваем исходники Asterisk версии 20
+WORKDIR /usr/src
+RUN git clone -b 20 --depth 1 https://github.com/asterisk/asterisk.git
+WORKDIR /usr/src/asterisk
+
+# Конфигурируем и собираем Asterisk
+RUN ./configure && \
+    make menuselect.makeopts && \
+    make && make install && make samples && make config
+
+# Создаём пользователя asterisk
+RUN useradd -m -r -d /var/lib/asterisk -s /bin/bash asterisk
+
+# Копируем твои конфиги и звуки
+COPY asterisk/ /etc/asterisk/
+COPY sounds/dog-barking-twice.wav /var/lib/asterisk/sounds/ru/
+RUN chown -R asterisk:asterisk /var/lib/asterisk/sounds/ru/
+
+# Порты
+EXPOSE 5060/udp 5060/tcp 5038 8088
+
+# Запуск Asterisk
+CMD ["asterisk", "-f", "-vvv"]
