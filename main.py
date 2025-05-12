@@ -1,6 +1,6 @@
 import asyncio
 
-from poc.ari_handler import start
+from ari_handler import start
 
 async def main():
     await start()

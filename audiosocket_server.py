@@ -1,5 +1,7 @@
 import socket
 import threading
+import time
+# from pydub import AudioSegment
 
 HOST = '0.0.0.0'  # слушать на всех интерфейсах
 PORT = 8080
@@ -29,6 +31,17 @@ def start_server():
     while True:
         conn, addr = server.accept()
         threading.Thread(target=handle_client, args=(conn, addr), daemon=True).start()
+
+
+# def send_audio_data(data):
+#     # Загрузите и конвертируйте WAV в raw PCM
+#     sound = AudioSegment.from_wav("message.wav")
+#     raw_data = sound.set_frame_rate(8000).set_channels(1).set_sample_width(2).raw_data
+
+#     # Отправка через сокет
+#     with socket.create_connection(("localhost", 12345)) as s:  # или аудиосокет-порт
+#         s.sendall(raw_data)
+
 
 if __name__ == '__main__':
     start_server()

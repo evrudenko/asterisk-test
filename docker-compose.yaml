@@ -10,6 +10,8 @@ services:
       - "5038:5038"
       - "8088:8088"
       - "10000-10050:10000-10050/udp"
+    expose:
+      - "8088"
     networks:
       - asterisk-net
     depends_on:
@@ -24,6 +26,27 @@ services:
       - asterisk-net
     expose:
       - "8080"  # только для внутренней сети
+
+  rtp_listener:
+    build:
+      context: .
+      dockerfile: ./Dockerfile.rtp_listener
+    container_name: rtp_listener
+    networks:
+      - asterisk-net
+    expose:
+      - "10000"  # только для внутренней сети
+
+  ari_handler:
+    build:
+      context: .
+      dockerfile: ./Dockerfile.ari_handler
+    container_name: ari_handler
+    networks:
+      - asterisk-net
+    depends_on:
+      - asterisk
+    # restart: always
 
 networks:
   asterisk-net:
