@@ -47,7 +47,7 @@ async def create_external_media(channel_id):
         channel_id=channel_id,
         app=AST_APP,
         external_host='rtp_listener:10000',
-        format='slin16',
+        format='ulaw',
     )
 
 

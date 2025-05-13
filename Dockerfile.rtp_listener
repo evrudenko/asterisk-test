@@ -3,4 +3,26 @@ FROM python:3.11-slim
 WORKDIR /app
 COPY src/rtp_listener/ .
 
-CMD ["python", "rtp_listener.py"]
+RUN apt update && apt install -y \
+    libavformat-dev \
+    libavcodec-dev \
+    libavutil-dev \
+    libswresample-dev \
+    libswscale-dev \
+    libmp3lame-dev \
+    libopus-dev \
+    libvorbis-dev \
+    libvpx-dev \
+    ffmpeg \
+    libssl-dev \
+    libffi-dev \
+    curl \
+    unzip
+
+RUN pip install --upgrade pip setuptools wheel
+RUN pip install pydub numpy speechrecognition wave vosk
+
+RUN curl -LO https://alphacephei.com/vosk/models/vosk-model-small-ru-0.22.zip
+RUN unzip vosk-model-small-ru-0.22.zip
+
+CMD ["python", "recognizer_test.py"]

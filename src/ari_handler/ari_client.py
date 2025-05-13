@@ -20,14 +20,14 @@ class AriClient:
         self.username = username
         self.password = password
 
-    def channels_external_media(self, channel_id: str, app: str, external_host: str, format: str = "slin16"):
+    def channels_external_media(self, channel_id: str, app: str, external_host: str, format: str = "ulaw"):
         """
         Create an external media channel.
         Args:
             channel_id (str): The ID of the channel.
             app (str): The application name.
             external_host (str): Hostname/IP:port of external host.
-            format (str): Format to encode audio in. Default is 'slin16'.
+            format (str): Format to encode audio in. Default is 'ulaw'.
         """
         url = f"http://{self.host}:{self.port}/ari/channels/externalMedia"
         params = {
