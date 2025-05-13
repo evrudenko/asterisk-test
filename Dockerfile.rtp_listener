@@ -1,6 +1,6 @@
 FROM python:3.11-slim
 
 WORKDIR /app
-COPY rtp_listener.py .
+COPY src/rtp_listener/ .
 
 CMD ["python", "rtp_listener.py"]

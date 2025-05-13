@@ -1,8 +1,8 @@
 FROM python:3.11-slim
 
 WORKDIR /app
-COPY ari_handler.py .
-COPY ari_client.py .
+COPY src/ari_handler/ .
+
 RUN pip install asyncari requests
 
 CMD ["python", "ari_handler.py"]

@@ -14,18 +14,6 @@ services:
       - "8088"
     networks:
       - asterisk-net
-    depends_on:
-      - audioserver
-
-  audioserver:
-    build:
-      context: .
-      dockerfile: ./Dockerfile.audioserver
-    container_name: audioserver
-    networks:
-      - asterisk-net
-    expose:
-      - "8080"  # только для внутренней сети
 
   rtp_listener:
     build:
@@ -35,7 +23,7 @@ services:
     networks:
       - asterisk-net
     expose:
-      - "10000"  # только для внутренней сети
+      - "10000"
 
   ari_handler:
     build:
