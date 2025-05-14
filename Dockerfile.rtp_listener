@@ -1,7 +1,6 @@
 FROM python:3.11-slim
 
 WORKDIR /app
-COPY src/rtp_listener/ .
 
 RUN apt update && apt install -y \
     libavformat-dev \
@@ -24,5 +23,9 @@ RUN pip install pydub numpy speechrecognition wave vosk
 
 RUN curl -LO https://alphacephei.com/vosk/models/vosk-model-small-ru-0.22.zip
 RUN unzip vosk-model-small-ru-0.22.zip
+# RUN curl -LO https://alphacephei.com/vosk/models/vosk-model-ru-0.42.zip
+# RUN unzip vosk-model-ru-0.42.zip
+
+COPY src/rtp_listener/ .
 
 CMD ["python", "recognizer_test.py"]
