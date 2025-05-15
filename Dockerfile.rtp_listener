@@ -28,4 +28,4 @@ RUN unzip vosk-model-small-ru-0.22.zip
 
 COPY src/rtp_listener/ .
 
-CMD ["python", "recognizer_test.py"]
+CMD ["python", "recognizer.py"]
