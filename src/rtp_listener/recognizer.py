@@ -3,7 +3,6 @@ import os
 import socket
 import logging
 import json
-from datetime import datetime
 
 import numpy as np
 from vosk import Model, KaldiRecognizer
@@ -12,11 +11,15 @@ from vosk import Model, KaldiRecognizer
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-# Настройки
+# Параметры для прослушивания RTP
 LISTEN_IP = '0.0.0.0'
 LISTEN_PORT = 10000
-SAMPLE_RATE = 8000
-CHANNELS = 1
+
+# Параметры для RTP
+SAMPLE_RATE = 8000 # Частота дискретизации входящего аудио
+CHANNELS = 1 # Количество каналов
+
+# Параметры для обработки аудио
 OUTPUT_FILE = 'output.raw'  # Имя файла для записи
 SILENCE_FRAMES_THRESHOLD = 20  # Количество кадров тишины для завершения фразы
 SILENCE_RMS_THRESHOLD = 30  # RMS амплитуда для определения тишины
@@ -46,6 +49,7 @@ def is_silence(samples, threshold_rms=100):
     pcm_audio_8k = audioop.ulaw2lin(samples, 2)
     amplitudes = np.frombuffer(pcm_audio_8k, dtype=np.int16).astype(np.float32)
     rms = np.sqrt(np.mean(amplitudes ** 2))
+    # Uncomment this line to log RMS values
     # logger.info("RMS amplitude: %.2f, len: %s", rms, len(samples))
     return rms < threshold_rms
 
@@ -54,18 +58,14 @@ try:
     with open(OUTPUT_FILE, 'wb') as f:
         while True:
             data, addr = sock.recvfrom(2048)  # получаем RTP-пакет
-            # logger.info(f"Received {len(data)} bytes from {addr}")
-            # Если нужно — записывайте или обрабатывайте аудио здесь
             ulaw_data = data[12:]  # Пропускаем RTP заголовок (обычно 12 байт)
             f.write(ulaw_data)
 
             buffer += ulaw_data
 
             silence_frames = silence_frames + 1 if is_silence(ulaw_data, SILENCE_RMS_THRESHOLD) else 0
-            # logger.info(f"Silence frames: {silence_frames}")
 
-            if silence_frames >= SILENCE_FRAMES_THRESHOLD:  # 160 frames at 8000 Hz for 0.3 seconds
-                # is_silence_result = is_silence(buffer[int(-SAMPLE_RATE * CHANNELS * 0.3):], 100)
+            if silence_frames >= SILENCE_FRAMES_THRESHOLD:
                 buffer = buffer[:-silence_frames*160] # Убираем тишину из буфера
                 if len(buffer) == 0:
                     buffer = b''
@@ -76,12 +76,6 @@ try:
 
                 pcm_audio_8k = audioop.ulaw2lin(buffer, 2)
                 pcm_audio_16k, _ = audioop.ratecv(pcm_audio_8k, 2, 1, 8000, 16000, None)
-
-                # logger.info(f"Buffer size 8k: {len(pcm_audio_8k)} bytes")
-                # logger.info(f"Buffer size 16k: {len(pcm_audio_16k)} bytes")
-
-                # is_silence_result = is_silence(pcm_audio_8k[-SAMPLE_RATE * 2 * CHANNELS * 1:], 100)
-                # logger.info(f"Is silence 8k: {is_silence_result}")
 
                 # Подадим аудио
                 if recognizer.AcceptWaveform(pcm_audio_16k):
