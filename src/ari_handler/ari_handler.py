@@ -32,21 +32,21 @@ async def on_start(client):
             await channel.answer()
 
             new_channel_id = uuid4()
-            await create_external_media(new_channel_id)
-            bridge = await client.bridges.create(type='mixing')
+            await create_external_media(new_channel_id, external_host='rtp_listener:10000')
 
+            bridge = await client.bridges.create(type='mixing')
             await bridge.addChannel(channel=channel.id)
             await bridge.addChannel(channel=new_channel_id)
 
             logger.info("🎧 Подключён к внешнему потоку, запускай TTS стример")
 
 
-async def create_external_media(channel_id):
+async def create_external_media(channel_id, external_host):
     ari_client = AriClient(AST_HOST, AST_PORT)
     ari_client.channels_external_media(
         channel_id=channel_id,
         app=AST_APP,
-        external_host='rtp_listener:10000',
+        external_host=external_host,
         format='ulaw',
     )
 

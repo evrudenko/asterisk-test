@@ -3,9 +3,14 @@ import os
 import socket
 import logging
 import json
+import time
+import random
+import io
 
+from gtts import gTTS
 import numpy as np
 from vosk import Model, KaldiRecognizer
+from pydub import AudioSegment
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -27,6 +32,8 @@ SILENCE_RMS_THRESHOLD = 30  # RMS амплитуда для определени
 # Создаем UDP-сокет
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 sock.bind((LISTEN_IP, LISTEN_PORT))
+
+sock_response = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
 buffer = b''
 
@@ -52,6 +59,90 @@ def is_silence(samples, threshold_rms=100):
     # Uncomment this line to log RMS values
     # logger.info("RMS amplitude: %.2f, len: %s", rms, len(samples))
     return rms < threshold_rms
+
+
+def stream_ulaw_rtp(file_path: str, target_ip: str, target_port: int, frame_duration_ms=20):
+    # Случайный SSRC
+    ssrc = random.randint(0, 0xFFFFFFFF)
+    rtp_header = bytearray([
+        0x80, 0x00, 0x00, 0x00,      # Version, Payload Type, Sequence Number
+        0x00, 0x00, 0x00, 0x00,      # Timestamp
+        (ssrc >> 24) & 0xFF,
+        (ssrc >> 16) & 0xFF,
+        (ssrc >> 8) & 0xFF,
+        ssrc & 0xFF
+    ])
+
+    sequence_number = 0
+    timestamp = 0
+
+    with open(file_path, 'rb') as f:
+        while True:
+            payload = f.read(160)  # 20ms @ 8kHz = 160 bytes
+            if not payload:
+                break
+
+            # Обновляем заголовки
+            rtp_header[2:4] = sequence_number.to_bytes(2, 'big')
+            rtp_header[4:8] = timestamp.to_bytes(4, 'big')
+
+            packet = rtp_header + payload
+            sock_response.sendto(packet, (target_ip, target_port))
+
+            sequence_number += 1
+            timestamp += 160  # для G.711: 8kHz → 160 samples per 20ms
+
+            time.sleep(frame_duration_ms / 1000)
+
+
+def text_to_ulaw_stream(text: str) -> bytes:
+    # Генерируем речь в mp3 с помощью gTTS
+    tts = gTTS(text, lang='ru')
+    mp3_fp = io.BytesIO()
+    tts.write_to_fp(mp3_fp)
+    mp3_fp.seek(0)
+
+    # Загружаем mp3 в pydub
+    audio = AudioSegment.from_file(mp3_fp, format="mp3")
+
+    # Преобразуем в u-law: 8kHz, 1 канал, 8 бит
+    ulaw_audio = audio.set_frame_rate(8000).set_channels(1).set_sample_width(1)
+
+    # Экспорт в поток в формате WAV (с u-law кодеком)
+    raw_fp = io.BytesIO()
+    ulaw_audio.export(raw_fp, format="raw", codec="pcm_mulaw")
+    return raw_fp.getvalue()
+
+
+def stream_ulaw_rtp_from_bytes(ulaw_data: bytes, target_ip: str, target_port: int, frame_duration_ms=20):
+    # RTP header setup
+    ssrc = random.randint(0, 0xFFFFFFFF)
+    sequence_number = 0
+    timestamp = 0
+
+    # 20ms @ 8kHz = 160 samples per frame for G.711
+    frame_size = int(8000 * frame_duration_ms / 1000)  # 160 for 20ms
+
+    for i in range(0, len(ulaw_data), frame_size):
+        payload = ulaw_data[i:i + frame_size]
+        if len(payload) < frame_size:
+            break  # Обрезанный последний пакет можно пропустить или дополнить нулями
+
+        # Формируем RTP-заголовок
+        rtp_header = bytearray(12)
+        rtp_header[0] = 0x80                        # Версия: 2
+        rtp_header[1] = 0x00                        # Payload Type: 0 (G.711 μ-law)
+        rtp_header[2:4] = sequence_number.to_bytes(2, 'big')
+        rtp_header[4:8] = timestamp.to_bytes(4, 'big')
+        rtp_header[8:12] = ssrc.to_bytes(4, 'big')
+
+        packet = rtp_header + payload
+        sock.sendto(packet, (target_ip, target_port))
+
+        sequence_number = (sequence_number + 1) % 65536
+        timestamp += frame_size
+
+        time.sleep(frame_duration_ms / 1000)
 
 
 try:
@@ -89,7 +180,13 @@ try:
                 buffer = b''
                 silence_frames = 0
 
+                # TODO: Отправить голосовой ответ обратно в Asterisk
+                logger.info("Отправляем ответ в Asterisk на %s:%s", addr[0], addr[1])
+                time.sleep(0.5)  # Задержка для синхронизации
+                stream_ulaw_rtp("response.ulaw", addr[0], addr[1])
+
 except KeyboardInterrupt:
     logger.info("Stopped by user.")
 finally:
     sock.close()
+    sock_response.close()
