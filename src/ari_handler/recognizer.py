@@ -17,10 +17,6 @@ from pydub import AudioSegment
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-# Параметры для прослушивания RTP
-LISTEN_IP = '0.0.0.0'
-LISTEN_PORT = 10000
-
 # Параметры для RTP
 SAMPLE_RATE = 8000 # Частота дискретизации входящего аудио
 CHANNELS = 1 # Количество каналов
@@ -28,8 +24,6 @@ CHANNELS = 1 # Количество каналов
 # Параметры для обработки аудио
 SILENCE_FRAMES_THRESHOLD = 20  # Количество кадров тишины для завершения фразы
 SILENCE_RMS_THRESHOLD = 30  # RMS амплитуда для определения тишины
-
-logger.info(f"Listening for RTP on {LISTEN_IP}:{LISTEN_PORT}...")
 
 
 def get_recognizer():
@@ -134,19 +128,24 @@ def recognize_ulaw_audio(recognizer, ulaw_data: bytes) -> str:
     return text
 
 
-async def start():
+async def start(ip: str, port: int):
+    loop = asyncio.get_running_loop()
+
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    sock.bind((LISTEN_IP, LISTEN_PORT))
+    sock.bind((ip, port))
+    sock.setblocking(False)
 
     sock_response = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
     buffer = b''
     silence_frames = 0
+    response_prefilled = False
 
     try:
         recognizer = get_recognizer()
+        logger.info(f"Listening for RTP on {ip}:{port}...")
         while True:
-            data, addr = sock.recvfrom(2048)  # получаем RTP-пакет
+            data, addr = await loop.sock_recvfrom(sock, 2048)  # получаем RTP-пакет
             ulaw_data = data[12:]  # Пропускаем RTP заголовок (обычно 12 байт)
 
             buffer += ulaw_data
@@ -154,15 +153,13 @@ async def start():
             silence_frames = silence_frames + 1 if is_silence(ulaw_data, SILENCE_RMS_THRESHOLD) else 0
 
             if silence_frames >= SILENCE_FRAMES_THRESHOLD:
-                buffer = buffer[:-silence_frames*160] # Убираем тишину из буфера
+                buffer = buffer[:-silence_frames*160]
                 if len(buffer) == 0:
                     buffer = b''
                     silence_frames = 0
                     continue
 
                 logger.info(f"Silence detected. Buffer size: {len(buffer)}, {len(buffer) / (SAMPLE_RATE * CHANNELS)} seconds")
-
-                # stream_ulaw_rtp_bytes(b'\xff' * 160*100, addr[0], addr[1])
 
                 # Распознаем текст из буфера
                 text = recognize_ulaw_audio(recognizer, buffer)
@@ -171,6 +168,10 @@ async def start():
                 if text:
                     logger.info("Отправляем ответ в Asterisk на %s:%s", addr[0], addr[1])
                     current_ulaw_response = text_to_ulaw_stream(text)
+                    # For the first time we need to send silence before the response
+                    if not response_prefilled:
+                        current_ulaw_response = b'\xff' * 160 * 40 + current_ulaw_response
+                        response_prefilled = True
                     stream_ulaw_rtp_bytes(sock_response, current_ulaw_response, addr[0], addr[1])
 
                 buffer = b''
@@ -184,4 +185,4 @@ async def start():
 
 
 if __name__ == "__main__":
-    asyncio.run(start())
+    asyncio.run(start("0.0.0.0", 10000))

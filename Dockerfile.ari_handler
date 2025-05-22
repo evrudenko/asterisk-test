@@ -1,8 +1,29 @@
 FROM python:3.11-slim
 
-WORKDIR /app
-COPY src/ari_handler/ .
+RUN apt update && apt install -y \
+    libavformat-dev \
+    libavcodec-dev \
+    libavutil-dev \
+    libswresample-dev \
+    libswscale-dev \
+    libmp3lame-dev \
+    libopus-dev \
+    libvorbis-dev \
+    libvpx-dev \
+    ffmpeg \
+    libssl-dev \
+    libffi-dev \
+    curl \
+    unzip
 
-RUN pip install asyncari requests
+WORKDIR /app
+
+RUN curl -LO https://alphacephei.com/vosk/models/vosk-model-small-ru-0.22.zip
+RUN unzip vosk-model-small-ru-0.22.zip
+
+RUN pip install --upgrade pip setuptools wheel
+RUN pip install asyncari requests pydub numpy speechrecognition wave vosk gtts
+
+COPY src/ari_handler/ .
 
 CMD ["python", "ari_handler.py"]

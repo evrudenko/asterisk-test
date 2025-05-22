@@ -2,43 +2,65 @@ import asyncio
 from uuid import uuid4
 import time
 import logging
+import os
 
 import asyncari
 
 from ari_client import AriClient
+from recognizer import start as start_recognizer
 
 # Настройка логирования
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
-AST_HOST = "asterisk"
-AST_PORT = 8088
-AST_URL = f"http://{AST_HOST}:{AST_PORT}/"
-AST_APP = "voicebot"
-AST_USER = "ariuser"
-AST_PASS = "ariuser"
+AST_HOST = os.getenv("AST_HOST", "asterisk")
+AST_PORT = os.getenv("AST_PORT",  8088)
+AST_URL = os.getenv("AST_URL",  f"http://{AST_HOST}:{AST_PORT}/")
+AST_APP = os.getenv("AST_APP", "voicebot")
+AST_USER = os.getenv("AST_USER", "ariuser")
+AST_PASS = os.getenv("AST_PASS", "ariuser")
+
+
+running_rtp_listeners = {}
+
+
+async def handle_stasis_start(client):
+    async with client.on_channel_event("StasisStart") as listener:
+        async for objs, event in listener:
+            channel = objs["channel"]
+            if not channel.caller["number"]:
+                logger.info("❌ Пропускаем вызов без номера")
+                continue
+            logger.info(f"📞 Входящий звонок от {channel.caller['number']}")
+            await channel.answer()
+            new_channel_id = uuid4()
+
+            logger.info("Creating external media")
+            await create_external_media(new_channel_id, external_host="ari_handler:20000")
+            bridge = await client.bridges.create(type="mixing")
+            await bridge.addChannel(channel=channel.id)
+            await bridge.addChannel(channel=new_channel_id)
+            logger.info("External media created")
+
+            task = asyncio.create_task(start_recognizer("0.0.0.0", 20000))
+            running_rtp_listeners[channel.id] = task
+
+
+async def handle_stasis_end(client):
+    async with client.on_channel_event("StasisEnd") as listener:
+        async for channel, event in listener:
+            logger.info(f"🚫 Завершён вызов для канала {channel.id}")
+            # Здесь можно добавить дополнительную логику по завершению вызова
+            if channel.id in running_rtp_listeners:
+                task = running_rtp_listeners[channel.id]
+                task.cancel()
+                del running_rtp_listeners[channel.id]
+                logger.info(f"🛑 Остановлен RTP listener для канала {channel.id}")
 
 
 async def on_start(client):
     logger.info("🎧 Слушаем вызовы")
-    async with client.on_channel_event('StasisStart') as listener:
-        async for objs, event in listener:
-            channel = objs['channel']
-            if not channel.caller['number']:
-                logger.info(f"❌ Пропускаем вызов без номера")
-                continue
-            logger.info(f"📞 Входящий звонок от {channel.caller['number']}")
-
-            await channel.answer()
-
-            new_channel_id = uuid4()
-            await create_external_media(new_channel_id, external_host='rtp_listener:10000')
-
-            bridge = await client.bridges.create(type='mixing')
-            await bridge.addChannel(channel=channel.id)
-            await bridge.addChannel(channel=new_channel_id)
-
-            logger.info("🎧 Подключён к внешнему потоку, запускай TTS стример")
+    await asyncio.gather(handle_stasis_start(client), handle_stasis_end(client))
 
 
 async def create_external_media(channel_id, external_host):
@@ -47,7 +69,7 @@ async def create_external_media(channel_id, external_host):
         channel_id=channel_id,
         app=AST_APP,
         external_host=external_host,
-        format='ulaw',
+        format="ulaw",
     )
 
 
