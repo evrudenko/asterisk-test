@@ -7,7 +7,8 @@ import os
 import asyncari
 
 from ari_client import AriClient
-from recognizer import start as start_recognizer
+from connector import run_websocket_connector
+# from recognizer import start as start_recognizer
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -36,13 +37,15 @@ async def handle_stasis_start(client):
             new_channel_id = uuid4()
 
             logger.info("Creating external media")
-            await create_external_media(new_channel_id, external_host="ari_handler:20000")
+            await create_external_media(new_channel_id, external_host="ari_handler:10000")
             bridge = await client.bridges.create(type="mixing")
             await bridge.addChannel(channel=channel.id)
             await bridge.addChannel(channel=new_channel_id)
             logger.info("External media created")
 
-            task = asyncio.create_task(start_recognizer("0.0.0.0", 20000))
+            # task = asyncio.create_task(start_recognizer("0.0.0.0", 10000))
+            task = asyncio.create_task(run_websocket_connector("0.0.0.0", 8765))
+
             running_rtp_listeners[channel.id] = task
 
 

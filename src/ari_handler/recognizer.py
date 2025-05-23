@@ -44,18 +44,19 @@ def is_silence(samples, threshold_rms=100):
     amplitudes = np.frombuffer(pcm_audio_8k, dtype=np.int16).astype(np.float32)
     rms = np.sqrt(np.mean(amplitudes ** 2))
     # Uncomment this line to log RMS values
-    # logger.info("RMS amplitude: %.2f, len: %s", rms, len(samples))
+    # logger.info("RMS amplitude: %.2f", rms)
     return rms < threshold_rms
 
 
-def stream_ulaw_rtp(sock, file_path: str, target_ip: str, target_port: int):
+async def stream_ulaw_rtp(sock, file_path: str, target_ip: str, target_port: int):
     with open(file_path, 'rb') as f:
         ulaw_data = f.read()
-    return stream_ulaw_rtp_bytes(sock, ulaw_data, target_ip, target_port)
+    return await stream_ulaw_rtp_bytes(sock, ulaw_data, target_ip, target_port)
 
 
-def stream_ulaw_rtp_bytes(sock, ulaw_data: bytes, target_ip: str, target_port: int):
+async def stream_ulaw_rtp_bytes(sock, ulaw_data: bytes, target_ip: str, target_port: int):
     logger.info("Streaming ulaw data size %s:", len(ulaw_data))
+    loop = asyncio.get_running_loop()
 
     frame_duration_ms = 20
     frame_size = int(SAMPLE_RATE * frame_duration_ms / 1000)  # 160 bytes per 20ms
@@ -82,12 +83,12 @@ def stream_ulaw_rtp_bytes(sock, ulaw_data: bytes, target_ip: str, target_port: i
         rtp_header[4:8] = timestamp.to_bytes(4, 'big')
 
         packet = rtp_header + payload
-        sock.sendto(packet, (target_ip, target_port))
+        await loop.sock_sendto(sock, packet, (target_ip, target_port))
 
         sequence_number += 1
         timestamp += frame_size  # для G.711: 8kHz → 160 samples per 20ms
 
-        time.sleep(frame_duration_ms / 1000)
+        await asyncio.sleep(frame_duration_ms / 1000)
 
 
 def text_to_ulaw_stream(text: str) -> bytes:
@@ -135,8 +136,6 @@ async def start(ip: str, port: int):
     sock.bind((ip, port))
     sock.setblocking(False)
 
-    sock_response = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-
     buffer = b''
     silence_frames = 0
     response_prefilled = False
@@ -172,7 +171,7 @@ async def start(ip: str, port: int):
                     if not response_prefilled:
                         current_ulaw_response = b'\xff' * 160 * 40 + current_ulaw_response
                         response_prefilled = True
-                    stream_ulaw_rtp_bytes(sock_response, current_ulaw_response, addr[0], addr[1])
+                    asyncio.create_task(stream_ulaw_rtp_bytes(sock, current_ulaw_response, addr[0], addr[1]))
 
                 buffer = b''
                 silence_frames = 0
@@ -181,7 +180,6 @@ async def start(ip: str, port: int):
         logger.info("Stopped by user.")
     finally:
         sock.close()
-        sock_response.close()
 
 
 if __name__ == "__main__":

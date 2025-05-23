@@ -34,8 +34,8 @@ services:
       - asterisk-net
     depends_on:
       - asterisk
-    expose:
-      - "20000"
+    ports:
+      - "8765:8765"
     # restart: always
 
 networks:
