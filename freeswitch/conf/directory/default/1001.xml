@@ -1,0 +1,21 @@
+<include>
+    <user id="1001">
+        <params>
+            <param name="password" value="pass1001"/>
+            <param name="vm-password" value="1001"/>
+        </params>
+        <variables>
+            <variable name="toll_allow" value="domestic,international,local"/>
+            <variable name="accountcode" value="1001"/>
+            <variable name="user_context" value="default"/>
+            <variable name="directory-visible" value="true"/>
+            <variable name="directory-exten-visible" value="true"/>
+            <variable name="limit_max" value="10"/>
+            <variable name="effective_caller_id_name" value="Extension 1001"/>
+            <variable name="effective_caller_id_number" value="1001"/>
+            <variable name="outbound_caller_id_name" value="Company Name"/>
+            <variable name="outbound_caller_id_number" value="1001"/>
+            <variable name="callgroup" value="techsupport"/>
+        </variables>
+    </user>
+</include>

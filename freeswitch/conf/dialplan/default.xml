@@ -1,0 +1,11 @@
+<context name="default">
+    <include>
+        <extension name="rtp-proxy-test">
+            <condition field="destination_number" expression="^100$">
+                <action application="answer"/>
+                <action application="sleep" data="1000"/> <!-- Подождать 1 секунду после ответа -->
+                <action application="playback" data="ivr/8000/ivr-access_denied.wav"/>
+            </condition>
+        </extension>
+    </include>
+</context>

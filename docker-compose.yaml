@@ -1,43 +1,55 @@
 services:
-  asterisk:
-    build:
-      context: .
-      dockerfile: ./Dockerfile.asterisk
-    container_name: asterisk
-    ports:
-      - "5060:5060/udp"
-      - "5060:5060/tcp"
-      - "5038:5038"
-      - "8088:8088"
-      - "10000-10050:10000-10050/udp"
-    expose:
-      - "8088"
-    networks:
-      - asterisk-net
-
-  # rtp_listener:
+  # asterisk:
   #   build:
   #     context: .
-  #     dockerfile: ./Dockerfile.rtp_listener
-  #   container_name: rtp_listener
-  #   networks:
-  #     - asterisk-net
+  #     dockerfile: ./Dockerfile.asterisk
+  #   container_name: asterisk
+  #   ports:
+  #     - "5060:5060/udp"
+  #     - "5060:5060/tcp"
+  #     - "5038:5038"
+  #     - "8088:8088"
+  #     - "10000-10050:10000-10050/udp"
   #   expose:
-  #     - "10000"
+  #     - "8088"
+  #   networks:
+  #     - voice-net
 
-  ari_handler:
+  freeswitch:
     build:
       context: .
-      dockerfile: ./Dockerfile.ari_handler
-    container_name: ari_handler
-    networks:
-      - asterisk-net
-    depends_on:
-      - asterisk
+      dockerfile: ./Dockerfile.freeswitch
+    container_name: freeswitch
     ports:
-      - "8765:8765"
+      - "5060:5060/udp"     # SIP
+      - "5060:5060/tcp"
+      - "16384-16400:16384-16400/udp"  # RTP
+    networks:
+      - voice-net
+
+  rtp-proxy:
+    build:
+      context: .
+      dockerfile: ./Dockerfile.rtp-proxy
+    container_name: rtp-proxy
+    networks:
+      - voice-net
+    expose:
+      - "10000"
+
+  # ari-handler:
+  #   build:
+  #     context: .
+  #     dockerfile: ./Dockerfile.ari-handler
+  #   container_name: ari-handler
+  #   networks:
+  #     - voice-net
+  #   depends_on:
+  #     - asterisk
+  #   ports:
+  #     - "8765:8765"
     # restart: always
 
 networks:
-  asterisk-net:
+  voice-net:
     driver: bridge

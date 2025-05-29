@@ -26,6 +26,6 @@ RUN unzip vosk-model-small-ru-0.22.zip
 RUN pip install --upgrade pip setuptools wheel
 RUN pip install pydub numpy speechrecognition wave vosk gtts
 
-COPY src/rtp_listener/ .
+COPY src/rtp_proxy/ .
 
-CMD ["python", "recognizer.py"]
+CMD ["python", "rtp_proxy.py"]

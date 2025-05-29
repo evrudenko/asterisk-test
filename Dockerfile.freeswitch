@@ -1,0 +1,80 @@
+# Dockerfile: Сборка FreeSWITCH из исходников
+FROM debian:bullseye
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Установка зависимостей
+RUN sed -i 's|http://deb.debian.org|http://mirror.yandex.ru|g' /etc/apt/sources.list && \
+    apt clean && rm -rf /var/lib/apt/lists/* && \
+    apt update
+
+RUN apt install -y git wget curl gnupg2 lsb-release
+RUN apt install -y build-essential autoconf automake
+RUN apt install -y libtool libncurses5-dev libssl-dev
+RUN apt install -y libcurl4-openssl-dev libpcre3-dev
+RUN apt install -y libedit-dev vim python3-dev libpq-dev
+RUN apt install -y yasm ca-certificates libtool-bin
+RUN apt install -y libsqlite3-dev libsndfile1-dev pkg-config sudo
+RUN apt install -y libtiff-dev libxml2-dev libfltk1.3-dev libfftw3-dev
+RUN apt install -y libpcap-dev libspeex-dev libspeexdsp-dev uuid-dev
+
+# Сборка и установка spandsp 3.x
+RUN git clone https://github.com/freeswitch/spandsp.git /usr/src/spandsp && \
+    cd /usr/src/spandsp && \
+    ./bootstrap.sh && \
+    ./configure && \
+    make -j$(nproc) && make install && ldconfig
+
+# Сборка и установка sofia-sip из официального форка FreeSWITCH
+RUN git clone https://github.com/freeswitch/sofia-sip.git /usr/src/sofia-sip && \
+    cd /usr/src/sofia-sip && \
+    ./bootstrap.sh && \
+    ./configure && \
+    make -j$(nproc) && \
+    make install && \
+    ldconfig
+
+# Клонируем исходники
+WORKDIR /usr/src
+RUN git clone https://github.com/signalwire/freeswitch.git && \
+    cd freeswitch && \
+    git checkout v1.10.10 && \
+    ./bootstrap.sh -j
+
+# Копируем минимальную конфигурацию модулей
+WORKDIR /usr/src/freeswitch
+RUN echo "applications/mod_dptools" > modules.conf && \
+    echo "codecs/mod_pcm" >> modules.conf && \
+    echo "endpoints/mod_sofia" >> modules.conf && \
+    echo "endpoints/mod_loopback" >> modules.conf && \
+    echo "event_handlers/mod_event_socket" >> modules.conf && \
+    echo "dialplans/mod_dialplan_xml" >> modules.conf && \
+    echo "applications/mod_commands" >> modules.conf && \
+    echo "say/mod_say_en" >> modules.conf && \
+    echo "formats/mod_sndfile" >> modules.conf && \
+    echo "loggers/mod_console" >> modules.conf
+
+# Сборка и установка
+RUN ./configure
+RUN make -j$(nproc)
+RUN make install
+RUN make sounds-install moh-install
+
+# Копируем systemd-файл для справки
+RUN cp build/freeswitch.service /usr/local/freeswitch/
+
+# Копируем конфигурацию FreeSWITCH
+# COPY freeswitch/conf/autoload_configs/console.conf.xml /usr/local/freeswitch/conf/autoload_configs/console.conf.xml
+COPY freeswitch/conf/autoload_configs/event_socket.conf.xml /usr/local/freeswitch/conf/autoload_configs/event_socket.conf.xml
+COPY freeswitch/conf/dialplan/default.xml /usr/local/freeswitch/conf/dialplan/default.xml
+COPY freeswitch/conf/directory/default/1001.xml /usr/local/freeswitch/conf/directory/default/1001.xml
+
+# Настраиваем переменные 
+ENV FS_PREFIX=/usr/local/freeswitch
+ENV PATH="$PATH:$FS_PREFIX/bin"
+
+# Порт SIP и RTP
+EXPOSE 5060/udp 5080/udp 5060/tcp 5080/tcp 8021/tcp 16384-16400/udp
+
+# Запуск FreeSWITCH
+CMD ["/usr/local/freeswitch/bin/freeswitch", "-nonat", "-nf"]
