@@ -1,0 +1,10 @@
+<include>
+    <gateway name="rtp-proxy">
+        <param name="proxy" value="rtp-proxy"/> <!-- IP или hostname -->
+        <param name="register" value="false"/>           <!-- Если внешний сервис НЕ требует регистрацию -->
+        <param name="expire-seconds" value="3600"/>
+        <param name="retry-seconds" value="30"/>
+        <param name="caller-id-in-from" value="true"/>
+        <param name="extension" value="100"/>            <!-- Куда идет INVITE -->
+    </gateway>
+</include>

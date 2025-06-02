@@ -28,4 +28,4 @@ RUN pip install pydub numpy speechrecognition wave vosk gtts
 
 COPY src/rtp_proxy/ .
 
-CMD ["python", "rtp_proxy.py"]
+CMD ["python", "test.py"]

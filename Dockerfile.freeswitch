@@ -17,6 +17,7 @@ RUN apt install -y yasm ca-certificates libtool-bin
 RUN apt install -y libsqlite3-dev libsndfile1-dev pkg-config sudo
 RUN apt install -y libtiff-dev libxml2-dev libfltk1.3-dev libfftw3-dev
 RUN apt install -y libpcap-dev libspeex-dev libspeexdsp-dev uuid-dev
+RUN apt install -y libwebsockets-dev
 
 # Сборка и установка spandsp 3.x
 RUN git clone https://github.com/freeswitch/spandsp.git /usr/src/spandsp && \
@@ -38,8 +39,10 @@ RUN git clone https://github.com/freeswitch/sofia-sip.git /usr/src/sofia-sip && 
 WORKDIR /usr/src
 RUN git clone https://github.com/signalwire/freeswitch.git && \
     cd freeswitch && \
-    git checkout v1.10.10 && \
-    ./bootstrap.sh -j
+    git checkout v1.10.12
+
+# Добавляем mod_audio_fork
+COPY freeswitch/modules/mod_audio_fork /usr/src/freeswitch/src/mod/applications/mod_audio_fork
 
 # Копируем минимальную конфигурацию модулей
 WORKDIR /usr/src/freeswitch
@@ -50,14 +53,19 @@ RUN echo "applications/mod_dptools" > modules.conf && \
     echo "event_handlers/mod_event_socket" >> modules.conf && \
     echo "dialplans/mod_dialplan_xml" >> modules.conf && \
     echo "applications/mod_commands" >> modules.conf && \
+    echo "applications/mod_socket" >> modules.conf && \
+    echo "applications/mod_media_bug" >> modules.conf && \
+    echo "applications/mod_audio_fork" >> modules.conf && \
     echo "say/mod_say_en" >> modules.conf && \
     echo "formats/mod_sndfile" >> modules.conf && \
     echo "loggers/mod_console" >> modules.conf
 
 # Сборка и установка
+RUN ./bootstrap.sh -j
 RUN ./configure
 RUN make -j$(nproc)
 RUN make install
+RUN make mod_audio_fork-install
 RUN make sounds-install moh-install
 
 # Копируем systemd-файл для справки
@@ -66,10 +74,13 @@ RUN cp build/freeswitch.service /usr/local/freeswitch/
 # Копируем конфигурацию FreeSWITCH
 # COPY freeswitch/conf/autoload_configs/console.conf.xml /usr/local/freeswitch/conf/autoload_configs/console.conf.xml
 COPY freeswitch/conf/autoload_configs/event_socket.conf.xml /usr/local/freeswitch/conf/autoload_configs/event_socket.conf.xml
+COPY freeswitch/conf/autoload_configs/modules.conf.xml /usr/local/freeswitch/conf/autoload_configs/modules.conf.xml
 COPY freeswitch/conf/dialplan/default.xml /usr/local/freeswitch/conf/dialplan/default.xml
 COPY freeswitch/conf/directory/default/1001.xml /usr/local/freeswitch/conf/directory/default/1001.xml
+COPY freeswitch/conf/sip_profiles/external/rtp-proxy.xml /usr/local/freeswitch/conf/sip_profiles/external/rtp-proxy.xml
+COPY freeswitch/conf/sip_profiles/external.xml /usr/local/freeswitch/conf/sip_profiles/external.xml
 
-# Настраиваем переменные 
+# Настраиваем переменные
 ENV FS_PREFIX=/usr/local/freeswitch
 ENV PATH="$PATH:$FS_PREFIX/bin"
 

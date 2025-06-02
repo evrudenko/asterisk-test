@@ -1,0 +1,7 @@
+<configuration name="audio_fork.conf" description="AudioFork Configuration">
+    <settings>
+        <param name="capture-server" value="rtp-proxy:10000"/>
+        <param name="channels" value="both"/>
+        <param name="verbose" value="true"/>
+    </settings>
+</configuration>
