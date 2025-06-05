@@ -1,24 +1,26 @@
 import asyncio
-import socket
-import logging
-from dataclasses import dataclass
-import json
 import base64
-from typing import Any
+import json
+import logging
 import random
+import socket
+from dataclasses import dataclass
+from typing import Any
 
 import websockets
-from websockets.exceptions import ConnectionClosedOK, ConnectionClosedError
+from websockets.exceptions import ConnectionClosedError, ConnectionClosedOK
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+)
 logger = logging.getLogger(__name__)
 
 RTP_HOST = "0.0.0.0"
 RTP_PORT = 10000
 
 # Параметры для RTP
-SAMPLE_RATE = 8000 # Частота дискретизации входящего аудио
-CHANNELS = 1 # Количество каналов
+SAMPLE_RATE = 8000  # Частота дискретизации входящего аудио
+CHANNELS = 1  # Количество каналов
 
 
 @dataclass
@@ -44,7 +46,7 @@ def decode_packet(packet: Any) -> InputAudioPacket:
         return InputAudioPacket(
             audio_data=decoded_data,
             reciever_ip=json_data.get("reciever_ip"),
-            reciever_port=json_data.get("reciever_port")
+            reciever_port=json_data.get("reciever_port"),
         )
     except Exception as e:
         logger.error("Decoding error: %s", e)
@@ -54,9 +56,9 @@ def decode_packet(packet: Any) -> InputAudioPacket:
 def encode_packet(packet: OutputAudioPacket) -> str:
     try:
         json_data = {
-            "audio_data": base64.b64encode(packet.audio_data).decode('utf-8'),
+            "audio_data": base64.b64encode(packet.audio_data).decode("utf-8"),
             "sender_ip": packet.sender_ip,
-            "sender_port": packet.sender_port
+            "sender_port": packet.sender_port,
         }
         return json.dumps(json_data)
     except Exception as e:
@@ -64,7 +66,9 @@ def encode_packet(packet: OutputAudioPacket) -> str:
         raise e
 
 
-async def stream_ulaw_rtp_bytes(sock, ulaw_data: bytes, target_ip: str, target_port: int):
+async def stream_ulaw_rtp_bytes(
+    sock, ulaw_data: bytes, target_ip: str, target_port: int
+):
     logger.info("Streaming ulaw data size %s:", len(ulaw_data))
     loop = asyncio.get_running_loop()
 
@@ -73,24 +77,32 @@ async def stream_ulaw_rtp_bytes(sock, ulaw_data: bytes, target_ip: str, target_p
 
     # Случайный SSRC
     ssrc = random.randint(0, 0xFFFFFFFF)
-    rtp_header = bytearray([
-        0x80, 0x00, 0x00, 0x00,      # Version, Payload Type, Sequence Number
-        0x00, 0x00, 0x00, 0x00,      # Timestamp
-        (ssrc >> 24) & 0xFF,
-        (ssrc >> 16) & 0xFF,
-        (ssrc >> 8) & 0xFF,
-        ssrc & 0xFF
-    ])
+    rtp_header = bytearray(
+        [
+            0x80,
+            0x00,
+            0x00,
+            0x00,  # Version, Payload Type, Sequence Number
+            0x00,
+            0x00,
+            0x00,
+            0x00,  # Timestamp
+            (ssrc >> 24) & 0xFF,
+            (ssrc >> 16) & 0xFF,
+            (ssrc >> 8) & 0xFF,
+            ssrc & 0xFF,
+        ]
+    )
 
     sequence_number = 0
     timestamp = 0
 
     for i in range(0, len(ulaw_data), frame_size):
-        payload = ulaw_data[i:i + frame_size]
+        payload = ulaw_data[i : i + frame_size]
 
         # Обновляем заголовки
-        rtp_header[2:4] = sequence_number.to_bytes(2, 'big')
-        rtp_header[4:8] = timestamp.to_bytes(4, 'big')
+        rtp_header[2:4] = sequence_number.to_bytes(2, "big")
+        rtp_header[4:8] = timestamp.to_bytes(4, "big")
 
         packet = rtp_header + payload
         await loop.sock_sendto(sock, packet, (target_ip, target_port))
@@ -113,7 +125,12 @@ async def handle_connection(websocket):
         try:
             async for message in websocket:
                 packet = decode_packet(message)
-                await stream_ulaw_rtp_bytes(rtp_sock, packet.audio_data, packet.reciever_ip, packet.reciever_port)
+                await stream_ulaw_rtp_bytes(
+                    rtp_sock,
+                    packet.audio_data,
+                    packet.reciever_ip,
+                    packet.reciever_port,
+                )
         except (ConnectionClosedOK, ConnectionClosedError):
             pass
 
@@ -126,9 +143,7 @@ async def handle_connection(websocket):
 
                 ulaw_data = data[12:]
                 packet = OutputAudioPacket(
-                    audio_data=ulaw_data,
-                    sender_ip=addr[0],
-                    sender_port=addr[1]
+                    audio_data=ulaw_data, sender_ip=addr[0], sender_port=addr[1]
                 )
                 await websocket.send(encode_packet(packet))
         except (ConnectionClosedOK, ConnectionClosedError):
@@ -138,10 +153,7 @@ async def handle_connection(websocket):
     task1 = asyncio.create_task(ws_to_rtp())
     task2 = asyncio.create_task(rtp_to_ws())
 
-    _, pending = await asyncio.wait(
-        [task1, task2],
-        return_when=asyncio.FIRST_COMPLETED
-    )
+    _, pending = await asyncio.wait([task1, task2], return_when=asyncio.FIRST_COMPLETED)
 
     # Завершаем обе задачи и закрываем сокет
     for task in pending:

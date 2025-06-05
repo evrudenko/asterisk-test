@@ -1,16 +1,17 @@
-import socket
-import threading
 import datetime
 import logging
-
+import socket
+import threading
 
 # Настройка логирования
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+)
 logger = logging.getLogger(__name__)
 
 # Параметры
-LISTEN_IP = '0.0.0.0'   # Слушаем на всех интерфейсах
-LISTEN_PORT = 10000     # Порт, который должен совпадать с FreeSWITCH (mod_audio_fork)
+LISTEN_IP = "0.0.0.0"  # Слушаем на всех интерфейсах
+LISTEN_PORT = 10000  # Порт, который должен совпадать с FreeSWITCH (mod_audio_fork)
 
 # Создаём UDP-сокет
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -36,8 +37,6 @@ except KeyboardInterrupt:
 
 finally:
     sock.close()
-
-
 
 
 # def handle_client(conn, addr):

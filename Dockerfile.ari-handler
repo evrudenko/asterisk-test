@@ -22,7 +22,7 @@ RUN curl -LO https://alphacephei.com/vosk/models/vosk-model-small-ru-0.22.zip
 RUN unzip vosk-model-small-ru-0.22.zip
 
 RUN pip install --upgrade pip setuptools wheel
-RUN pip install asyncari requests pydub numpy speechrecognition wave vosk gtts
+RUN pip install asyncari requests pydub numpy speechrecognition wave vosk gtts torch transformers sentencepiece
 
 COPY src/ari_handler/ .
 

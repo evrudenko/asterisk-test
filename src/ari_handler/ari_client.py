@@ -1,15 +1,20 @@
-import requests
 import logging
 
+import requests
+
 # Настройка логирования
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+)
 logger = logging.getLogger(__name__)
 
 
 class AriClient:
     """ARI Client."""
 
-    def __init__(self, host: str, port: int, username: str = "ariuser", password: str = "ariuser"):
+    def __init__(
+        self, host: str, port: int, username: str = "ariuser", password: str = "ariuser"
+    ):
         """
         Args:
             host (str): Hostname of the Asterisk server.
@@ -20,7 +25,9 @@ class AriClient:
         self.username = username
         self.password = password
 
-    def channels_external_media(self, channel_id: str, app: str, external_host: str, format: str = "ulaw"):
+    def channels_external_media(
+        self, channel_id: str, app: str, external_host: str, format: str = "ulaw"
+    ):
         """
         Create an external media channel.
         Args:
@@ -41,13 +48,19 @@ class AriClient:
             "direction": "both",
         }
         logger.info("URL: %s", url)
-        response = requests.post(url, params=params, auth=(self.username, self.password))
+        response = requests.post(
+            url, params=params, auth=(self.username, self.password)
+        )
         if response.status_code == 200:
             logger.info("✅ ExternalMedia создан: %s", response.json())
         else:
-            logger.warning("⚠️ Ошибка externalMedia: %s - %s", response.status_code, response.text)
+            logger.warning(
+                "⚠️ Ошибка externalMedia: %s - %s", response.status_code, response.text
+            )
 
-    def originate_channel(self, endpoint: str, app: str, format: str = "slin16") -> str | None:
+    def originate_channel(
+        self, endpoint: str, app: str, format: str = "slin16"
+    ) -> str | None:
         """
         Originate a channel.
         Args:
@@ -68,5 +81,7 @@ class AriClient:
             logger.info("✅ Channel originated")
             return response.json().get("id")
         else:
-            logger.warning("⚠️ Ошибка originate: %s - %s", response.status_code, response.text)
+            logger.warning(
+                "⚠️ Ошибка originate: %s - %s", response.status_code, response.text
+            )
             return None

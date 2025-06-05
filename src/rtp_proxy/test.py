@@ -3,7 +3,8 @@ import socket
 
 RTP_PORT = 10000
 SIP_PORT = 5060
-IP_ADDRESS = '0.0.0.0'  # Подставь внешний IP, если вызываешь извне
+IP_ADDRESS = "0.0.0.0"  # Подставь внешний IP, если вызываешь извне
+
 
 # RTP listener coroutine
 async def handle_rtp():
@@ -20,6 +21,7 @@ async def handle_rtp():
         except Exception as e:
             print(f"[RTP] Error: {e}")
 
+
 # Very basic SIP server
 async def handle_sip():
     print(f"[SIP] Listening on {IP_ADDRESS}:{SIP_PORT}")
@@ -30,16 +32,43 @@ async def handle_sip():
     loop = asyncio.get_event_loop()
     while True:
         data, addr = await loop.sock_recvfrom(sip_sock, 2048)
-        text = data.decode(errors='ignore')
+        text = data.decode(errors="ignore")
         print(f"[SIP] Received from {addr}:\n{text}")
 
         if "INVITE" in text:
             # Extract Call-ID, From-tag, etc.
-            call_id = next((line for line in text.splitlines() if line.lower().startswith("call-id:")), None)
-            from_tag = next((line for line in text.splitlines() if line.lower().startswith("from:")), None)
-            to = next((line for line in text.splitlines() if line.lower().startswith("to:")), None)
-            via = next((line for line in text.splitlines() if line.lower().startswith("via:")), None)
-            cseq = next((line for line in text.splitlines() if line.lower().startswith("cseq:")), None)
+            call_id = next(
+                (
+                    line
+                    for line in text.splitlines()
+                    if line.lower().startswith("call-id:")
+                ),
+                None,
+            )
+            from_tag = next(
+                (
+                    line
+                    for line in text.splitlines()
+                    if line.lower().startswith("from:")
+                ),
+                None,
+            )
+            to = next(
+                (line for line in text.splitlines() if line.lower().startswith("to:")),
+                None,
+            )
+            via = next(
+                (line for line in text.splitlines() if line.lower().startswith("via:")),
+                None,
+            )
+            cseq = next(
+                (
+                    line
+                    for line in text.splitlines()
+                    if line.lower().startswith("cseq:")
+                ),
+                None,
+            )
 
             sdp = f"""v=0
 o=rtpproxy 12345 12345 IN IP4 {IP_ADDRESS}
@@ -64,12 +93,14 @@ Content-Length: {len(sdp)}
             await loop.sock_sendto(sip_sock, response.encode(), addr)
             print(f"[SIP] Sent 200 OK to {addr}")
 
+
 # Main asyncio entrypoint
 async def main():
     await asyncio.gather(
         handle_rtp(),
         handle_sip(),
     )
+
 
 if __name__ == "__main__":
     asyncio.run(main())

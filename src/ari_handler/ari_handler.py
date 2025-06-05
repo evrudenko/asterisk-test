@@ -1,22 +1,24 @@
 import asyncio
-from uuid import uuid4
-import time
 import logging
 import os
+import time
+from uuid import uuid4
 
 import asyncari
-
 from ari_client import AriClient
-from connector import run_websocket_connector
-# from recognizer import start as start_recognizer
+
+# from connector import run_websocket_connector
+from recognizer import start as start_recognizer
 
 # Настройка логирования
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+)
 logger = logging.getLogger(__name__)
 
 AST_HOST = os.getenv("AST_HOST", "asterisk")
-AST_PORT = os.getenv("AST_PORT",  8088)
-AST_URL = os.getenv("AST_URL",  f"http://{AST_HOST}:{AST_PORT}/")
+AST_PORT = os.getenv("AST_PORT", 8088)
+AST_URL = os.getenv("AST_URL", f"http://{AST_HOST}:{AST_PORT}/")
 AST_APP = os.getenv("AST_APP", "voicebot")
 AST_USER = os.getenv("AST_USER", "ariuser")
 AST_PASS = os.getenv("AST_PASS", "ariuser")
@@ -37,14 +39,16 @@ async def handle_stasis_start(client):
             new_channel_id = uuid4()
 
             logger.info("Creating external media")
-            await create_external_media(new_channel_id, external_host="ari_handler:10000")
+            await create_external_media(
+                new_channel_id, external_host="ari-handler:10000"
+            )
             bridge = await client.bridges.create(type="mixing")
             await bridge.addChannel(channel=channel.id)
             await bridge.addChannel(channel=new_channel_id)
             logger.info("External media created")
 
-            # task = asyncio.create_task(start_recognizer("0.0.0.0", 10000))
-            task = asyncio.create_task(run_websocket_connector("0.0.0.0", 8765))
+            task = asyncio.create_task(start_recognizer("0.0.0.0", 10000))
+            # task = asyncio.create_task(run_websocket_connector("0.0.0.0", 8765))
 
             running_rtp_listeners[channel.id] = task
 

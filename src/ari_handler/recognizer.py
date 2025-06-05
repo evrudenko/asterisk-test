@@ -1,25 +1,28 @@
 import asyncio
 import audioop
-import os
-import socket
-import logging
-import json
-import time
-import random
 import io
+import json
+import logging
+import os
+import random
+import socket
+import time
 
-from gtts import gTTS
 import numpy as np
-from vosk import Model, KaldiRecognizer
+from gtts import gTTS
+from llm_service import LLMService
 from pydub import AudioSegment
+from vosk import KaldiRecognizer, Model
 
 # Настройка логирования
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+)
 logger = logging.getLogger(__name__)
 
 # Параметры для RTP
-SAMPLE_RATE = 8000 # Частота дискретизации входящего аудио
-CHANNELS = 1 # Количество каналов
+SAMPLE_RATE = 8000  # Частота дискретизации входящего аудио
+CHANNELS = 1  # Количество каналов
 
 # Параметры для обработки аудио
 SILENCE_FRAMES_THRESHOLD = 20  # Количество кадров тишины для завершения фразы
@@ -31,7 +34,9 @@ def get_recognizer():
     model_path = "vosk-model-small-ru-0.22"
     # model_path = "vosk-model-ru-0.42"
     if not os.path.exists(model_path):
-        logger.error("Модель Vosk не найдена. Скачайте с https://alphacephei.com/vosk/models и распакуйте.")
+        logger.error(
+            "Модель Vosk не найдена. Скачайте с https://alphacephei.com/vosk/models и распакуйте."
+        )
         exit(1)
 
     model = Model(model_path)
@@ -42,19 +47,21 @@ def is_silence(samples, threshold_rms=100):
     """Определяет, является ли аудио блок тишиной на основе RMS"""
     pcm_audio_8k = audioop.ulaw2lin(samples, 2)
     amplitudes = np.frombuffer(pcm_audio_8k, dtype=np.int16).astype(np.float32)
-    rms = np.sqrt(np.mean(amplitudes ** 2))
+    rms = np.sqrt(np.mean(amplitudes**2))
     # Uncomment this line to log RMS values
     # logger.info("RMS amplitude: %.2f", rms)
     return rms < threshold_rms
 
 
 async def stream_ulaw_rtp(sock, file_path: str, target_ip: str, target_port: int):
-    with open(file_path, 'rb') as f:
+    with open(file_path, "rb") as f:
         ulaw_data = f.read()
     return await stream_ulaw_rtp_bytes(sock, ulaw_data, target_ip, target_port)
 
 
-async def stream_ulaw_rtp_bytes(sock, ulaw_data: bytes, target_ip: str, target_port: int):
+async def stream_ulaw_rtp_bytes(
+    sock, ulaw_data: bytes, target_ip: str, target_port: int
+):
     logger.info("Streaming ulaw data size %s:", len(ulaw_data))
     loop = asyncio.get_running_loop()
 
@@ -63,24 +70,32 @@ async def stream_ulaw_rtp_bytes(sock, ulaw_data: bytes, target_ip: str, target_p
 
     # Случайный SSRC
     ssrc = random.randint(0, 0xFFFFFFFF)
-    rtp_header = bytearray([
-        0x80, 0x00, 0x00, 0x00,      # Version, Payload Type, Sequence Number
-        0x00, 0x00, 0x00, 0x00,      # Timestamp
-        (ssrc >> 24) & 0xFF,
-        (ssrc >> 16) & 0xFF,
-        (ssrc >> 8) & 0xFF,
-        ssrc & 0xFF
-    ])
+    rtp_header = bytearray(
+        [
+            0x80,
+            0x00,
+            0x00,
+            0x00,  # Version, Payload Type, Sequence Number
+            0x00,
+            0x00,
+            0x00,
+            0x00,  # Timestamp
+            (ssrc >> 24) & 0xFF,
+            (ssrc >> 16) & 0xFF,
+            (ssrc >> 8) & 0xFF,
+            ssrc & 0xFF,
+        ]
+    )
 
     sequence_number = 0
     timestamp = 0
 
     for i in range(0, len(ulaw_data), frame_size):
-        payload = ulaw_data[i:i + frame_size]
+        payload = ulaw_data[i : i + frame_size]
 
         # Обновляем заголовки
-        rtp_header[2:4] = sequence_number.to_bytes(2, 'big')
-        rtp_header[4:8] = timestamp.to_bytes(4, 'big')
+        rtp_header[2:4] = sequence_number.to_bytes(2, "big")
+        rtp_header[4:8] = timestamp.to_bytes(4, "big")
 
         packet = rtp_header + payload
         await loop.sock_sendto(sock, packet, (target_ip, target_port))
@@ -93,7 +108,7 @@ async def stream_ulaw_rtp_bytes(sock, ulaw_data: bytes, target_ip: str, target_p
 
 def text_to_ulaw_stream(text: str) -> bytes:
     # Генерируем речь в mp3 с помощью gTTS
-    tts = gTTS(text, lang='ru')
+    tts = gTTS(text, lang="ru")
     mp3_fp = io.BytesIO()
     tts.write_to_fp(mp3_fp)
     mp3_fp.seek(0)
@@ -130,13 +145,16 @@ def recognize_ulaw_audio(recognizer, ulaw_data: bytes) -> str:
 
 
 async def start(ip: str, port: int):
+    logger.info("Starting RTP recognizer on %s:%s", ip, port)
     loop = asyncio.get_running_loop()
+
+    llm_service = LLMService()
 
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.bind((ip, port))
     sock.setblocking(False)
 
-    buffer = b''
+    buffer = b""
     silence_frames = 0
     response_prefilled = False
 
@@ -149,31 +167,49 @@ async def start(ip: str, port: int):
 
             buffer += ulaw_data
 
-            silence_frames = silence_frames + 1 if is_silence(ulaw_data, SILENCE_RMS_THRESHOLD) else 0
+            silence_frames = (
+                silence_frames + 1
+                if is_silence(ulaw_data, SILENCE_RMS_THRESHOLD)
+                else 0
+            )
 
             if silence_frames >= SILENCE_FRAMES_THRESHOLD:
-                buffer = buffer[:-silence_frames*160]
+                buffer = buffer[: -silence_frames * 160]
                 if len(buffer) == 0:
-                    buffer = b''
+                    buffer = b""
                     silence_frames = 0
                     continue
 
-                logger.info(f"Silence detected. Buffer size: {len(buffer)}, {len(buffer) / (SAMPLE_RATE * CHANNELS)} seconds")
+                logger.info(
+                    f"Silence detected. Buffer size: {len(buffer)}, {len(buffer) / (SAMPLE_RATE * CHANNELS)} seconds"
+                )
 
                 # Распознаем текст из буфера
                 text = recognize_ulaw_audio(recognizer, buffer)
                 logger.info(f"Распознанный текст: {text}")
 
                 if text:
-                    logger.info("Отправляем ответ в Asterisk на %s:%s", addr[0], addr[1])
-                    current_ulaw_response = text_to_ulaw_stream(text)
+                    logger.info("Отправляем в LLM текст: %s", text)
+                    response_text = llm_service.generate(text)
+                    logger.info("Ответ от LLM: %s", response_text)
+                    logger.info("Генерируем ответ в u-law для Asterisk")
+                    current_ulaw_response = text_to_ulaw_stream(response_text[:30])
                     # For the first time we need to send silence before the response
                     if not response_prefilled:
-                        current_ulaw_response = b'\xff' * 160 * 40 + current_ulaw_response
+                        current_ulaw_response = (
+                            b"\xff" * 160 * 40 + current_ulaw_response
+                        )
                         response_prefilled = True
-                    asyncio.create_task(stream_ulaw_rtp_bytes(sock, current_ulaw_response, addr[0], addr[1]))
 
-                buffer = b''
+                    logger.info(
+                        "Отправляем ответ в Asterisk на %s:%s", addr[0], addr[1]
+                    )
+                    await stream_ulaw_rtp_bytes(
+                        sock, current_ulaw_response, addr[0], addr[1]
+                    )
+                    # asyncio.create_task(stream_ulaw_rtp_bytes(sock, current_ulaw_response, addr[0], addr[1]))
+
+                buffer = b""
                 silence_frames = 0
 
     except KeyboardInterrupt:
