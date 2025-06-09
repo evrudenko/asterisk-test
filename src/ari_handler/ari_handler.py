@@ -1,14 +1,12 @@
 import asyncio
 import logging
 import os
-import time
 from uuid import uuid4
 
 import asyncari
 from ari_client import AriClient
-
-# from connector import run_websocket_connector
-from recognizer import start as start_recognizer
+from llm_service import LLMService
+from main import start as start_recognizer
 
 # Настройка логирования
 logging.basicConfig(
@@ -23,14 +21,19 @@ AST_APP = os.getenv("AST_APP", "voicebot")
 AST_USER = os.getenv("AST_USER", "ariuser")
 AST_PASS = os.getenv("AST_PASS", "ariuser")
 
+logger.info("Creating LLMService instance")
+llm_service = LLMService()
+logger.info("LLMService instance created")
 
 running_rtp_listeners = {}
 
 
 async def handle_stasis_start(client):
+    ari_client = AriClient(AST_HOST, AST_PORT)
     async with client.on_channel_event("StasisStart") as listener:
         async for objs, event in listener:
             channel = objs["channel"]
+            logger.info("Channel data: state=%s, %s", channel.state, channel)
             if not channel.caller["number"]:
                 logger.info("❌ Пропускаем вызов без номера")
                 continue
@@ -39,15 +42,23 @@ async def handle_stasis_start(client):
             new_channel_id = uuid4()
 
             logger.info("Creating external media")
-            await create_external_media(
-                new_channel_id, external_host="ari-handler:10000"
+            await ari_client.channels_external_media(
+                channel_id=new_channel_id,
+                app=AST_APP,
+                external_host="ari-handler:10000",
+                format="ulaw",
             )
             bridge = await client.bridges.create(type="mixing")
             await bridge.addChannel(channel=channel.id)
             await bridge.addChannel(channel=new_channel_id)
-            logger.info("External media created")
 
-            task = asyncio.create_task(start_recognizer("0.0.0.0", 10000))
+            await ari_client.bridge_start_recording(
+                bridge_id=bridge.id,
+                format="wav",
+                name=f"recording_{channel.id}",
+            )
+
+            task = asyncio.create_task(start_recognizer("0.0.0.0", 10000, llm_service))
             # task = asyncio.create_task(run_websocket_connector("0.0.0.0", 8765))
 
             running_rtp_listeners[channel.id] = task
@@ -70,16 +81,6 @@ async def on_start(client):
     await asyncio.gather(handle_stasis_start(client), handle_stasis_end(client))
 
 
-async def create_external_media(channel_id, external_host):
-    ari_client = AriClient(AST_HOST, AST_PORT)
-    ari_client.channels_external_media(
-        channel_id=channel_id,
-        app=AST_APP,
-        external_host=external_host,
-        format="ulaw",
-    )
-
-
 async def start():
     async with asyncari.connect(AST_URL, AST_APP, AST_USER, AST_PASS) as client:
         logger.info("🔌 Подключение к Asterisk установлено")
@@ -90,7 +91,4 @@ async def start():
 
 
 if __name__ == "__main__":
-    logger.info("Fall asleep for 2 seconds...")
-    time.sleep(2)
-    logger.info("Awake")
     asyncio.run(start())

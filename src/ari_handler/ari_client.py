@@ -25,7 +25,7 @@ class AriClient:
         self.username = username
         self.password = password
 
-    def channels_external_media(
+    async def channels_external_media(
         self, channel_id: str, app: str, external_host: str, format: str = "ulaw"
     ):
         """
@@ -56,6 +56,47 @@ class AriClient:
         else:
             logger.warning(
                 "⚠️ Ошибка externalMedia: %s - %s", response.status_code, response.text
+            )
+
+    async def bridge_start_recording(
+        self,
+        bridge_id: str,
+        name: str,
+        format: str = "wav",
+        max_duration_seconds: int = 0,
+        max_silence_seconds: int = 0,
+        if_exists: str = "fail",
+        beep: bool = True,
+    ) -> None:
+        """
+        Start recording a bridge.
+
+        :param bridge_id: The ID of the bridge to record.
+        :param name: The name of the recording file.
+        :param format: The format of the recording (default is 'wav').
+        :param max_duration_seconds: Maximum duration of the recording in seconds (default is 0, meaning no limit).
+        :param max_silence_seconds: Maximum silence duration in seconds before stopping the recording (default is 0, meaning no limit).
+        :param if_exists: What to do if the recording file already exists (default is 'fail').
+        :param beep: Whether to play a beep sound before starting the recording (default is True).
+        """
+        url = f"http://{self.host}:{self.port}/ari/bridges/{bridge_id}/record"
+        params = {
+            "name": name,
+            "format": format,
+            "maxDurationSeconds": max_duration_seconds,
+            "maxSilenceSeconds": max_silence_seconds,
+            "ifExists": if_exists,
+            "beep": beep,
+        }
+        logger.info("URL: %s", url)
+        response = requests.post(
+            url, params=params, auth=(self.username, self.password)
+        )
+        if response.status_code == 201:
+            logger.info("✅ Bridge recording started")
+        else:
+            logger.warning(
+                "⚠️ Ошибка записи моста: %s - %s", response.status_code, response.text
             )
 
     def originate_channel(
