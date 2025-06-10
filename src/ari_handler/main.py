@@ -1,6 +1,7 @@
 import asyncio
 import audioop
 import logging
+import re
 
 import numpy as np
 from llm_service import LLMService
@@ -32,6 +33,17 @@ def is_silence(samples, threshold_rms=100):
     # Uncomment this line to log RMS values
     # logger.info("RMS amplitude: %.2f", rms)
     return rms < threshold_rms
+
+
+def split_text(text):
+    """Разбивает текст на части, не превышающие max_len, по предложениям."""
+    return [
+        sentence.strip()
+        for sentence in re.split(
+            r"(?<!\w\.\w.)(?<![A-Z][a-z]\.)(?<=\.|\?|!|\n)\s", text
+        )
+        if sentence.strip()
+    ]
 
 
 async def start(ip: str, port: int, llm_service: LLMService):
@@ -82,8 +94,11 @@ async def start(ip: str, port: int, llm_service: LLMService):
                     response_text = llm_service.generate(text)
                     logger.info("Ответ от LLM: %s", response_text)
 
+                    chunks = split_text(response_text)
+                    logger.info("Разделенный ответ на части: %s", chunks)
+
                     # response_text = text
-                    # TODO генерировать по частям, если текст длинный
+                    # TODO генерировать по частям, если текст длинный, use queue
                     logger.info("Generating u-law response for Asterisk")
                     current_ulaw_response = speech_generator.generate_speech(
                         response_text

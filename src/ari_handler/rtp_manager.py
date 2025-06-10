@@ -3,6 +3,7 @@ import logging
 import random
 import socket
 from typing import AsyncGenerator
+import queue
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +45,7 @@ class RTPManager:
         loop = asyncio.get_running_loop()
         while True:
             data, addr = await loop.sock_recvfrom(self._sock, packet_size)
-            if not data:
+            if not data:  # TODO if call muted data can be empty
                 break
             yield data[12:], addr
 
