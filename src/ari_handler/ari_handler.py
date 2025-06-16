@@ -52,12 +52,13 @@ async def handle_stasis_start(client):
             await bridge.addChannel(channel=channel.id)
             await bridge.addChannel(channel=new_channel_id)
 
-            await ari_client.bridge_start_recording(
-                bridge_id=bridge.id,
-                format="wav",
-                name=f"recording_{channel.id}",
-            )
+            # await ari_client.bridge_start_recording(
+            #     bridge_id=bridge.id,
+            #     format="wav",
+            #     name=f"recording_{channel.id}",
+            # )
 
+            # task = asyncio.create_task(start_recognizer("0.0.0.0", 10000, None))
             task = asyncio.create_task(start_recognizer("0.0.0.0", 10000, llm_service))
             # task = asyncio.create_task(run_websocket_connector("0.0.0.0", 8765))
 

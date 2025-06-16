@@ -1,3 +1,5 @@
+import asyncio
+
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
@@ -28,3 +30,6 @@ class LLMService:
 
         # Декодирование
         return self.tokenizer.decode(outputs[0], skip_special_tokens=True)
+
+    async def generate_async(self, instruction, max_new_tokens=100, temperature=0.7, top_p=0.9) -> bytes:
+        return await asyncio.to_thread(self.generate, instruction, max_new_tokens, temperature, top_p)

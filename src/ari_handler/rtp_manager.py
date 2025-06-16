@@ -1,9 +1,9 @@
 import asyncio
 import logging
+import queue
 import random
 import socket
 from typing import AsyncGenerator
-import queue
 
 logger = logging.getLogger(__name__)
 

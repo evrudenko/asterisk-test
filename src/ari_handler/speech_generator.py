@@ -1,3 +1,4 @@
+import asyncio
 import io
 
 from gtts import gTTS
@@ -38,3 +39,6 @@ class SpeechGenerator:
         raw_fp = io.BytesIO()
         ulaw_audio.export(raw_fp, format="mulaw", codec="pcm_mulaw")
         return raw_fp.getvalue()
+
+    async def generate_speech_async(self, text: str) -> bytes:
+        return await asyncio.to_thread(self.generate_speech, text)
