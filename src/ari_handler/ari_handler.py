@@ -60,6 +60,7 @@ async def handle_stasis_start(client: AriClient, event: Event):
     if channel.state != ChannelState.RING:
         logger.info("Channel not ring, skipping...")
         return
+
     logger.info(f"📞 Входящий звонок от {channel.caller.number}")
 
     await client.answer_channel(channel.id)
