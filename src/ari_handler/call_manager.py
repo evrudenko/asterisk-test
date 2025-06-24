@@ -59,14 +59,12 @@ class CallManager:
         if exc_type is not None:
             logger.error("An error occurred: %s", exc_value)
 
+        self.cancel_play()
+
         # Cancel the queue worker task if it's running
         if self._queue_worker_task and not self._queue_worker_task.done():
             self._queue_worker_task.cancel()
             logger.info("Cancelled queue worker task.")
-
-        # Empty the playback task queue
-        self._empty_playback_task_queue()
-        logger.info("Emptied playback task queue.")
 
         # Close the socket
         self._sock.close()
@@ -164,7 +162,9 @@ class CallManager:
             playback_coroutine = await self._response_playback_task_queue.get()
 
             logger.info("Playback task received, processing...")
-            self._current_playback_task = asyncio.create_task(self._run_playback_task(playback_coroutine))
+            self._current_playback_task = asyncio.create_task(
+                self._run_playback_task(playback_coroutine)
+            )
             try:
                 await self._current_playback_task
             except asyncio.CancelledError:
