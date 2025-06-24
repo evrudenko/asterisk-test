@@ -15,28 +15,6 @@ services:
     networks:
       - voice-net
 
-  # freeswitch:
-  #   build:
-  #     context: .
-  #     dockerfile: ./Dockerfile.freeswitch
-  #   container_name: freeswitch
-  #   ports:
-  #     - "5060:5060/udp"     # SIP
-  #     - "5060:5060/tcp"
-  #     - "16384-16400:16384-16400/udp"  # RTP
-  #   networks:
-  #     - voice-net
-
-  # rtp-proxy:
-  #   build:
-  #     context: .
-  #     dockerfile: ./Dockerfile.rtp-proxy
-  #   container_name: rtp-proxy
-  #   networks:
-  #     - voice-net
-  #   expose:
-  #     - "10000"
-
   ari-handler:
     build:
       context: .

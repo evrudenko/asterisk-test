@@ -5,8 +5,7 @@ This project is designed to test and demonstrate the functionality of the Asteri
 ## Components
 
 - **Asterisk Server**: The core component that handles VoIP communication.
-- **ARI Handler**: Processes calls to Asterisk via ARI and redirects the RTP voice stream to the RTP Listener.
-- **RTP Listener**: Listen to RTP stream, recognize pauses and translate speech into text.
+- **ARI Handler**: Processes calls to Asterisk via ARI and handles audio.
 
 ## Prerequisites
 
