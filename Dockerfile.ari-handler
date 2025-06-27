@@ -22,7 +22,7 @@ RUN curl -LO https://alphacephei.com/vosk/models/vosk-model-ru-0.42.zip
 RUN unzip vosk-model-ru-0.42.zip
 
 RUN pip install --upgrade pip setuptools wheel
-RUN pip install aiohttp pydub numpy vosk gtts torch transformers pydantic
+RUN pip install aiohttp pydub numpy vosk gtts torch transformers pydantic pydantic-settings
 
 COPY src/ari_handler/ .
 

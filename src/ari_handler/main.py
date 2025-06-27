@@ -7,7 +7,8 @@ from dataclasses import dataclass
 import numpy as np
 from call_manager import CallManager
 from llm_service import LLMService
-from speech_generator import SpeechGenerator
+from speech_synthesizer import SpeechSynthesizer
+from google_speech_synthesizer import GoogleSpeechSynthesizer
 from speech_recognizer import SpeechRecognizer
 
 # Настройка логирования
@@ -60,12 +61,12 @@ def split_text(text):
 async def generate_speech_and_play(
     chunk: ResponseChunk,
     call_manager: CallManager,
-    speech_generator: SpeechGenerator,
+    speech_synthesizer: SpeechSynthesizer,
     response_prefilled: bool,
 ):
     # Generate u-law response for the text
     logger.info("Generating u-law response for text: %s", chunk.text)
-    ulaw_response = await speech_generator.generate_speech_async(chunk.text)
+    ulaw_response = await speech_synthesizer.synthesize(chunk.text)
 
     # For the first time we need to send silence before the response
     if not response_prefilled:
@@ -88,7 +89,7 @@ async def _empty_queue(queue: asyncio.Queue):
 async def _response_queue_worker(
     response_queue: asyncio.Queue,
     call_manager: CallManager,
-    speech_generator: SpeechGenerator,
+    speech_synthesizer: SpeechSynthesizer,
 ):
     """Worker to process responses from the queue."""
     response_prefilled = False
@@ -105,7 +106,7 @@ async def _response_queue_worker(
                 await generate_speech_and_play(
                     chunk,
                     call_manager,
-                    speech_generator,
+                    speech_synthesizer,
                     response_prefilled=response_prefilled,
                 )
                 response_prefilled = True
@@ -123,13 +124,13 @@ async def start(
     silence_frames = 0
     speech_frames = 0
 
-    speech_generator = SpeechGenerator()
+    speech_synthesizer = GoogleSpeechSynthesizer()
     response_queue = asyncio.Queue()
 
     try:
         async with CallManager(ip, port) as call_manager:
             response_queue_worker_task = asyncio.create_task(
-                _response_queue_worker(response_queue, call_manager, speech_generator)
+                _response_queue_worker(response_queue, call_manager, speech_synthesizer)
             )
             async for ulaw_data, addr in call_manager.audio_channel(packet_size=2048):
                 # Append the received ulaw data to the buffer
