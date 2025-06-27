@@ -9,6 +9,9 @@ from call_manager import CallManager
 from llm_service import LLMService
 from speech_synthesizer import SpeechSynthesizer
 from google_speech_synthesizer import GoogleSpeechSynthesizer
+from yandex_speech_synthesizer import YandexSpeechSynthesizer
+from yandex_credentials_provider import YandexCredentialsProvider
+from yandex_settings import YandexSettings
 from speech_recognizer import SpeechRecognizer
 
 # Настройка логирования
@@ -124,7 +127,10 @@ async def start(
     silence_frames = 0
     speech_frames = 0
 
-    speech_synthesizer = GoogleSpeechSynthesizer()
+    # speech_synthesizer = GoogleSpeechSynthesizer()
+    settings = YandexSettings()
+    logger.info("Settings: %s", settings)
+    speech_synthesizer = YandexSpeechSynthesizer(YandexCredentialsProvider(settings))
     response_queue = asyncio.Queue()
 
     try:

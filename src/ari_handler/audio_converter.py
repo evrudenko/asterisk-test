@@ -12,7 +12,7 @@ class AudioConverter:
         ulaw_audio = audio.set_frame_rate(sample_rate).set_channels(1).set_sample_width(1)
 
         out_buffer = io.BytesIO()
-        ulaw_audio.export(out_buffer, format="raw", codec="pcm_mulaw")
+        ulaw_audio.export(out_buffer, format="mulaw", codec="pcm_mulaw")
         return out_buffer.getvalue()
 
     @staticmethod

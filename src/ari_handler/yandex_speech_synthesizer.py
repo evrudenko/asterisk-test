@@ -1,12 +1,14 @@
 import asyncio
 import grpc
-
+import logging
 from yandex_credentials_provider import YandexCredentialsProvider
 from yandex_settings import YandexSettings
 from generated import tts_service_pb2_grpc
 from generated.yandex.cloud.ai.tts.v3 import tts_pb2
 from speech_synthesizer import SpeechSynthesizer
 from audio_converter import AudioConverter
+
+logger = logging.getLogger(__name__)
 
 
 class YandexSpeechSynthesizer(SpeechSynthesizer):
@@ -26,6 +28,7 @@ class YandexSpeechSynthesizer(SpeechSynthesizer):
             grpc.ssl_channel_credentials()
         )
         self.stub = tts_service_pb2_grpc.SynthesizerStub(self.channel)
+        self.iam_token = None
 
     def _synthesize_sync(self, text: str, iam_token: str) -> bytes:
         """
@@ -35,6 +38,7 @@ class YandexSpeechSynthesizer(SpeechSynthesizer):
         :param iam_token: IAM token.
         :return: Audio data in u-law format.
         """
+        logger.info("Synthesizing sync")
         request = tts_pb2.UtteranceSynthesisRequest(
             text=text,
             output_audio_spec=tts_pb2.AudioFormatOptions(
@@ -45,7 +49,7 @@ class YandexSpeechSynthesizer(SpeechSynthesizer):
             hints=[tts_pb2.Hints(voice="alena")],
         )
 
-        print("🔥 Sending request...")
+        logger.info("🔥 Sending request...")
 
         try:
             response_stream = self.stub.UtteranceSynthesis(
@@ -64,15 +68,14 @@ class YandexSpeechSynthesizer(SpeechSynthesizer):
             return AudioConverter.ogg_opus_to_ulaw(b"".join(audio_chunks))
 
         except grpc.RpcError as e:
-            print("🚨 gRPC ERROR")
-            print(f"🧾 Code: {e.code()}")
-            print(f"🗒 Details: {e.details()}")
+            logger.error("Error synthesizing text: %s", e)
             raise
 
     async def synthesize(self, text: str) -> bytes:
-        iam_token = await self.credentials_provider.get_iam_token()
-        loop = asyncio.get_running_loop()
-        return await loop.run_in_executor(None, self._synthesize_sync, text, iam_token)
+        logger.info("🔥 Synthesizing text: %s", text)
+        if not self.iam_token:
+            self.iam_token = await self.credentials_provider.get_iam_token()
+        return await asyncio.to_thread(self._synthesize_sync, text, self.iam_token)
 
 
 if __name__ == "__main__":

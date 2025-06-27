@@ -3,6 +3,7 @@
 __pycache__
 /*.wav
 *.ogg
+*.ulaw
 /*.raw
 .env
 
