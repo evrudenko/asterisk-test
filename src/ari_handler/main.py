@@ -6,13 +6,13 @@ from dataclasses import dataclass
 
 import numpy as np
 from call_manager import CallManager
-from llm_service import LLMService
-from speech_synthesizer import SpeechSynthesizer
 from google_speech_synthesizer import GoogleSpeechSynthesizer
-from yandex_speech_synthesizer import YandexSpeechSynthesizer
+from llm_service import LLMService
+from speech_recognizer import SpeechRecognizer
+from speech_synthesizer import SpeechSynthesizer
 from yandex_credentials_provider import YandexCredentialsProvider
 from yandex_settings import YandexSettings
-from speech_recognizer import SpeechRecognizer
+from yandex_speech_synthesizer import YandexSpeechSynthesizer
 
 # Настройка логирования
 logging.basicConfig(
@@ -70,6 +70,7 @@ async def generate_speech_and_play(
     # Generate u-law response for the text
     logger.info("Generating u-law response for text: %s", chunk.text)
     ulaw_response = await speech_synthesizer.synthesize(chunk.text)
+    logger.info("✅ Generated u-law response for text: %s", chunk.text)
 
     # For the first time we need to send silence before the response
     if not response_prefilled:
@@ -119,7 +120,11 @@ async def _response_queue_worker(
 
 
 async def start(
-    ip: str, port: int, llm_service: LLMService, speech_recognizer: SpeechRecognizer
+    ip: str,
+    port: int,
+    llm_service: LLMService,
+    speech_recognizer: SpeechRecognizer,
+    speech_synthesizer: SpeechSynthesizer,
 ):
     logger.info("Starting RTP recognizer on %s:%s", ip, port)
 
@@ -127,10 +132,6 @@ async def start(
     silence_frames = 0
     speech_frames = 0
 
-    # speech_synthesizer = GoogleSpeechSynthesizer()
-    settings = YandexSettings()
-    logger.info("Settings: %s", settings)
-    speech_synthesizer = YandexSpeechSynthesizer(YandexCredentialsProvider(settings))
     response_queue = asyncio.Queue()
 
     try:
@@ -177,7 +178,7 @@ async def start(
 
                     # Recognize text from the buffer
                     # TODO: make async
-                    text = speech_recognizer.recognize(buffer)
+                    text = await speech_recognizer.recognize(buffer)
                     logger.info("Recognized text: %s", text)
 
                     if text:

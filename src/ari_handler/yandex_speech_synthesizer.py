@@ -1,44 +1,43 @@
 import asyncio
-import grpc
 import logging
+
+import grpc
+from audio_converter import AudioConverter
+from speech_synthesizer import SpeechSynthesizer
 from yandex_credentials_provider import YandexCredentialsProvider
 from yandex_settings import YandexSettings
+
 from generated import tts_service_pb2_grpc
 from generated.yandex.cloud.ai.tts.v3 import tts_pb2
-from speech_synthesizer import SpeechSynthesizer
-from audio_converter import AudioConverter
 
 logger = logging.getLogger(__name__)
 
 
 class YandexSpeechSynthesizer(SpeechSynthesizer):
     """
-    Yandex Speech Synthesizer.
+    Fully async Yandex Speech Synthesizer using gRPC aio.
     """
 
     def __init__(self, credentials_provider: YandexCredentialsProvider):
         """
-        Initialize the YandexSpeechSynthesizer.
+        Initialize the YandexSpeechSynthesizer with the given credentials provider.
 
-        :param credentials_provider: YandexCredentialsProvider instance.
+        :param credentials_provider: Instance of YandexCredentialsProvider to manage IAM tokens.
         """
         self.credentials_provider = credentials_provider
-        self.channel = grpc.secure_channel(
-            "tts.api.cloud.yandex.net:443",
-            grpc.ssl_channel_credentials()
-        )
-        self.stub = tts_service_pb2_grpc.SynthesizerStub(self.channel)
         self.iam_token = None
 
-    def _synthesize_sync(self, text: str, iam_token: str) -> bytes:
+    async def synthesize(self, text: str) -> bytes:
         """
-        Synthesize text to audio using Yandex Speechkit.
+        Synthesize speech asynchronously using Yandex TTS gRPC API.
 
         :param text: Text to synthesize.
-        :param iam_token: IAM token.
         :return: Audio data in u-law format.
         """
-        logger.info("Synthesizing sync")
+        logger.info("🔥 Synthesizing text: %s", text)
+        if not self.iam_token:
+            self.iam_token = await self.credentials_provider.get_iam_token()
+
         request = tts_pb2.UtteranceSynthesisRequest(
             text=text,
             output_audio_spec=tts_pb2.AudioFormatOptions(
@@ -49,33 +48,32 @@ class YandexSpeechSynthesizer(SpeechSynthesizer):
             hints=[tts_pb2.Hints(voice="alena")],
         )
 
-        logger.info("🔥 Sending request...")
+        metadata = [
+            ("authorization", f"Bearer {self.iam_token}"),
+            ("x-folder-id", self.credentials_provider.folder_id),
+        ]
 
-        try:
-            response_stream = self.stub.UtteranceSynthesis(
-                request,
-                metadata=[
-                    ("authorization", f"Bearer {iam_token}"),
-                    ("x-folder-id", self.credentials_provider.folder_id),
-                ],
-            )
+        # ✅ Канал создаётся внутри текущего event loop
+        async with grpc.aio.secure_channel(
+            "tts.api.cloud.yandex.net:443", grpc.ssl_channel_credentials()
+        ) as channel:
+            stub = tts_service_pb2_grpc.SynthesizerStub(channel)
+            try:
+                response_stream = stub.UtteranceSynthesis(request, metadata=metadata)
+                audio_chunks = []
+                async for response in response_stream:
+                    if response.HasField("audio_chunk"):
+                        audio_chunks.append(response.audio_chunk.data)
 
-            audio_chunks = []
-            for response in response_stream:
-                if response.HasField("audio_chunk"):
-                    audio_chunks.append(response.audio_chunk.data)
+                audio_response = b"".join(audio_chunks)
+                logger.info("✅ Synthesis completed successfully")
+                ulaw_response = await AudioConverter.ogg_opus_to_ulaw(audio_response)
+                logger.info("✅ Audio converted to u-law format")
+                return ulaw_response
 
-            return AudioConverter.ogg_opus_to_ulaw(b"".join(audio_chunks))
-
-        except grpc.RpcError as e:
-            logger.error("Error synthesizing text: %s", e)
-            raise
-
-    async def synthesize(self, text: str) -> bytes:
-        logger.info("🔥 Synthesizing text: %s", text)
-        if not self.iam_token:
-            self.iam_token = await self.credentials_provider.get_iam_token()
-        return await asyncio.to_thread(self._synthesize_sync, text, self.iam_token)
+            except grpc.aio.AioRpcError as e:
+                logger.error("❌ gRPC error during synthesis: %s", e)
+                raise
 
 
 if __name__ == "__main__":
@@ -83,6 +81,6 @@ if __name__ == "__main__":
     credentials_provider = YandexCredentialsProvider(settings)
     synthesizer = YandexSpeechSynthesizer(credentials_provider)
 
-    audio = asyncio.run(synthesizer.synthesize("Привет!"))
+    audio = asyncio.run(synthesizer.synthesize("Пока!"))
     with open("output.ulaw", "wb") as f:
         f.write(audio)

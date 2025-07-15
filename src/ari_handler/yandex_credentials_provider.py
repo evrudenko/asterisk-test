@@ -1,10 +1,9 @@
 import logging
 import time
 
-import jwt
 import aiohttp
+import jwt
 import requests
-
 from yandex_settings import YandexSettings
 
 logger = logging.getLogger(__name__)
@@ -22,7 +21,10 @@ class YandexCredentialsProvider:
         logger.info("Getting IAM token")
         jwt_token = self._generate_jwt()
         async with aiohttp.ClientSession() as session:
-            async with session.post("https://iam.api.cloud.yandex.net/iam/v1/tokens", json={"jwt": jwt_token}) as resp:
+            async with session.post(
+                "https://iam.api.cloud.yandex.net/iam/v1/tokens",
+                json={"jwt": jwt_token},
+            ) as resp:
                 data = await resp.json()
                 token = data["iamToken"]
                 return token
@@ -37,19 +39,24 @@ class YandexCredentialsProvider:
             "exp": now + 360,
             "kid": self.key_id,
         }
-        logger.debug(f"🔑 Private key (begin): {repr(self.private_key[:100])}")
 
         try:
-            token = jwt.encode(payload, self.private_key, algorithm="PS256", headers={"kid": self.key_id})
+            token = jwt.encode(
+                payload,
+                self.private_key,
+                algorithm="PS256",
+                headers={"kid": self.key_id},
+            )
             logger.info("JWT token successfully generated")
             return token
         except Exception as e:
-            logger.exception("❌ Failed to generate JWT token")
+            logger.exception("❌ Failed to generate JWT token: %s", e)
             raise
 
 
 if __name__ == "__main__":
     import asyncio
+
     settings = YandexSettings()
     provider = YandexCredentialsProvider(settings)
     token = asyncio.run(provider.get_iam_token())

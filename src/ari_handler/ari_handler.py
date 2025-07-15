@@ -4,12 +4,16 @@ import os
 from uuid import uuid4
 
 from ari_client import AriClient
+from kaldi_speech_recognizer import KaldiSpeechRecognizer
 from llm_service import LLMService
 from main import start as start_recognizer
 from models.channel_state import ChannelState
 from models.event import Event
 from models.event_type import EventType
-from speech_recognizer import SpeechRecognizer
+from yandex_credentials_provider import YandexCredentialsProvider
+from yandex_settings import YandexSettings
+from yandex_speech_recognizer import YandexSpeechRecognizer
+from yandex_speech_synthesizer import YandexSpeechSynthesizer
 
 # Настройка логирования
 logging.basicConfig(
@@ -24,9 +28,16 @@ AST_APP = os.getenv("AST_APP", "voicebot")
 AST_USER = os.getenv("AST_USER", "ariuser")
 AST_PASS = os.getenv("AST_PASS", "ariuser")
 
+yandex_credentials_provider = YandexCredentialsProvider(YandexSettings())
+
 logger.info("Creating SpeechRecognizer instance")
-speech_recognizer = SpeechRecognizer(model_path="vosk-model-ru-0.42")
+speech_recognizer = KaldiSpeechRecognizer(model_path="vosk-model-ru-0.42")
+# speech_recognizer = YandexSpeechRecognizer(yandex_credentials_provider)
 logger.info("SpeechRecognizer instance created")
+
+logger.info("Creating SpeechSynthesizer instance")
+speech_synthesizer = YandexSpeechSynthesizer(yandex_credentials_provider)
+logger.info("SpeechSynthesizer instance created")
 
 logger.info("Creating LLMService instance")
 llm_service = LLMService()
@@ -76,7 +87,9 @@ async def handle_stasis_start(client: AriClient, event: Event):
     )
 
     task = asyncio.create_task(
-        start_recognizer("0.0.0.0", 10000, llm_service, speech_recognizer)
+        start_recognizer(
+            "0.0.0.0", 10000, llm_service, speech_recognizer, speech_synthesizer
+        )
     )
 
     running_rtp_listeners[channel.id] = task
