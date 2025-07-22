@@ -31,7 +31,7 @@ AST_PASS = os.getenv("AST_PASS", "ariuser")
 yandex_credentials_provider = YandexCredentialsProvider(YandexSettings())
 
 logger.info("Creating SpeechRecognizer instance")
-speech_recognizer = KaldiSpeechRecognizer(model_path="vosk-model-ru-0.42")
+speech_recognizer = KaldiSpeechRecognizer(model_path="vosk-model-small-ru-0.22")
 # speech_recognizer = YandexSpeechRecognizer(yandex_credentials_provider)
 logger.info("SpeechRecognizer instance created")
 

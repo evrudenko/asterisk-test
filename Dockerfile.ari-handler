@@ -18,12 +18,12 @@ RUN apt update && apt install -y \
 
 WORKDIR /app
 
-RUN curl -LO https://alphacephei.com/vosk/models/vosk-model-ru-0.42.zip
-RUN unzip vosk-model-ru-0.42.zip
+RUN curl -LO https://alphacephei.com/vosk/models/vosk-model-small-ru-0.22.zip
+RUN unzip vosk-model-small-ru-0.22.zip
 
 RUN pip install --upgrade pip setuptools wheel
-RUN pip install aiohttp pydub numpy vosk gtts torch transformers pydantic pydantic-settings grpcio grpcio-tools protobuf
-RUN pip install pyjwt[crypto]
+RUN pip install aiohttp==3.12.14 pydub==0.25.1 numpy==2.3.1 vosk==0.3.45 gtts==2.5.4 torch==2.7.1 transformers==4.53.2
+RUN pip install pyjwt[crypto]==2.10.1 pydantic==2.11.7 pydantic-settings==2.10.1 grpcio==1.73.1 grpcio-tools==1.73.1 protobuf==6.31.1
 
 COPY src/ari_handler/ .
 COPY .env .
